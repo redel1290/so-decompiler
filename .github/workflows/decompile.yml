@@ -1,4 +1,4 @@
-name: Automated .so Decompilation
+name: Automated
 on: 
   push:
     paths:
