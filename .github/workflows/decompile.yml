@@ -23,21 +23,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y radare2
 
-      - name: Run Decompiler
+      - name: Run Optimized Decompiler
         run: |
           mkdir -p decompiled_code
           for file in libs/**/*.so; do
             if [ -f "$file" ]; then
               filename=$(basename "$file" .so)
-              echo "Аналізуємо $file..."
+              echo "===> Швидкий аналіз файлу $file..."
+              
+              # 1. Миттєво витягуємо текстові рядки (паролі, ключі, посилання)
               strings "$file" > "decompiled_code/${filename}_strings.txt"
-              r2 -A -c "aaa; afl; pdf @ main" "$file" > "decompiled_code/${filename}_functions.txt" || true
+              
+              # 2. Витягуємо список усіх функцій, які цей .so файл віддає в Android (JNI функції)
+              # Команда 'is' у radare2 виводить таблицю символів
+              r2 -q -c "is" "$file" > "decompiled_code/${filename}_exported_symbols.txt"
+              
+              # 3. Робимо швидкий аналіз і замість однієї абстрактної 'main' роздруковуємо 
+              # перші знайдені функції у лістинг ассемблера/псевдокоду
+              # 'aa' — швидкий аналіз; 'afl' — список функцій; 'pdf' — роздруківка перших функцій
+              r2 -q -A -c "aa; afl; pdf" "$file" > "decompiled_code/${filename}_code_listing.txt" || true
             fi
           done
 
       - name: Commit and Push changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 Авто-декомпіляція файлів .so [GitHub Actions]"
+          commit_message: "🤖 Оптимізована авто-декомпіляція .so [GitHub Actions]"
           file_pattern: 'decompiled_code/*'
 
