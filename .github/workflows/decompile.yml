@@ -3,51 +3,53 @@ on:
   push:
     paths:
       - 'libs/**.so'
-  workflow_dispatch:
+  workflow_dispatch: # Дозволяє запускати процес вручну через сайт GitHub
 
 permissions:
-  contents: write
+  contents: write # Дає роботу дозвіл записувати згенерований код назад у репозиторій
 
 jobs:
   decompile:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Стягуємо репозиторій (з підтримкою великих файлів Git LFS)
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: true # Actions обов'язково має викачати сам файл, а не просто посилання
 
+      # 2. Встановлюємо Radare2 на віртуальну машину GitHub
       - name: Install Radare2
         run: |
           sudo apt-get update
           sudo apt-get install -y radare2
 
-      - name: Run Optimized Decompiler
+      # 3. Супер-швидка обробка великого файлу без авто-аналізу
+      - name: Run Lightning Fast Decompiler
         run: |
           mkdir -p decompiled_code
           for file in libs/**/*.so; do
             if [ -f "$file" ]; then
               filename=$(basename "$file" .so)
-              echo "===> Швидкий аналіз файлу $file..."
+              echo "===> Супер-швидка обробка $file без аналізу масивів..."
               
-              # 1. Миттєво витягуємо текстові рядки (паролі, ключі, посилання)
+              # 1. Витягуємо весь текст (паролі, URL, токени) - ПРАЦЮЄ ЗАВЖДИ
               strings "$file" > "decompiled_code/${filename}_strings.txt"
               
-              # 2. Витягуємо список усіх функцій, які цей .so файл віддає в Android (JNI функції)
-              # Команда 'is' у radare2 виводить таблицю символів
+              # 2. Витягуємо таблицю всіх JNI та експортованих функцій - ПРАЦЮЄ ЗАВЖДИ
               r2 -q -c "is" "$file" > "decompiled_code/${filename}_exported_symbols.txt"
               
-              # 3. Робимо швидкий аналіз і замість однієї абстрактної 'main' роздруковуємо 
-              # перші знайдені функції у лістинг ассемблера/псевдокоду
-              # 'aa' — швидкий аналіз; 'afl' — список функцій; 'pdf' — роздруківка перших функцій
-              r2 -q -A -c "aa; afl; pdf" "$file" > "decompiled_code/${filename}_code_listing.txt" || true
+              # 3. Роздруковуємо загальну інформацію про бінарник та перші 100 рядків коду
+              # БЕЗ команд авто-аналізу (aa/aaa), щоб уникнути зависання сервера.
+              r2 -q -c "i; pd 100" "$file" > "decompiled_code/${filename}_entry_code.txt" || true
             fi
           done
 
+      # 4. Автоматично комітимо і пушимо згенерований код назад в репозиторій
       - name: Commit and Push changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 Оптимізована авто-декомпіляція .so [GitHub Actions]"
-          file_pattern: 'decompiled_code/*'
+          commit_message: "🤖 Ультимативна швидка авто-декомпіляція .so [GitHub Actions]"
+          file_pattern: 'decompiled_code/*' # Записуємо тільки результати роботи
 
