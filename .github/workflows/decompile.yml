@@ -1,0 +1,43 @@
+name: Automated .so Decompilation
+on: 
+  push:
+    paths:
+      - 'libs/**.so'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  decompile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Install Radare2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y radare2
+
+      - name: Run Decompiler
+        run: |
+          mkdir -p decompiled_code
+          for file in libs/**/*.so; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file" .so)
+              echo "Аналізуємо $file..."
+              strings "$file" > "decompiled_code/${filename}_strings.txt"
+              r2 -A -c "aaa; afl; pdf @ main" "$file" > "decompiled_code/${filename}_functions.txt" || true
+            fi
+          done
+
+      - name: Commit and Push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 Авто-декомпіляція файлів .so [GitHub Actions]"
+          file_pattern: 'decompiled_code/*'
+
