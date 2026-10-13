@@ -1,55 +1,54 @@
-name: Automated
+name: Automated .so Decompilation
 on: 
   push:
     paths:
       - 'libs/**.so'
-  workflow_dispatch: # Дозволяє запускати процес вручну через сайт GitHub
+  workflow_dispatch:
 
 permissions:
-  contents: write # Дає роботу дозвіл записувати згенерований код назад у репозиторій
+  contents: write
 
 jobs:
   decompile:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Стягуємо репозиторій (з підтримкою великих файлів Git LFS)
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          lfs: true # Actions обов'язково має викачати сам файл, а не просто посилання
+          lfs: true
 
-      # 2. Встановлюємо Radare2 на віртуальну машину GitHub
       - name: Install Radare2
         run: |
           sudo apt-get update
           sudo apt-get install -y radare2
 
-      # 3. Супер-швидка обробка великого файлу без авто-аналізу
-      - name: Run Lightning Fast Decompiler
+      - name: Smart Targeted Decompilation
         run: |
           mkdir -p decompiled_code
           for file in libs/**/*.so; do
             if [ -f "$file" ]; then
               filename=$(basename "$file" .so)
-              echo "===> Супер-швидка обробка $file без аналізу масивів..."
+              echo "===> Розумний аналіз функцій для $file..."
               
-              # 1. Витягуємо весь текст (паролі, URL, токени) - ПРАЦЮЄ ЗАВЖДИ
+              # 1. Текстові рядки залишаємо (це завжди корисно)
               strings "$file" > "decompiled_code/${filename}_strings.txt"
               
-              # 2. Витягуємо таблицю всіх JNI та експортованих функцій - ПРАЦЮЄ ЗАВЖДИ
+              # 2. Зберігаємо список експортованих функцій (символів)
               r2 -q -c "is" "$file" > "decompiled_code/${filename}_exported_symbols.txt"
               
-              # 3. Роздруковуємо загальну інформацію про бінарник та перші 100 рядків коду
-              # БЕЗ команд авто-аналізу (aa/aaa), щоб уникнути зависання сервера.
-              r2 -q -c "i; pd 100" "$file" > "decompiled_code/${filename}_entry_code.txt" || true
+              # 3. ХІРУРГІЧНИЙ ДЕКОМПІЛЯТОР:
+              # Робимо ТІЛЬКИ аналіз символів (af), щоб знайти межі функцій.
+              # Після цього перебираємо всі знайдені функції (через @@f) 
+              # і роздруковуємо їхній декомпільований код (pdf) у фінальний файл.
+              # Це дозволяє обійти гігантські масиви даних, які вішали сервер.
+              r2 -q -c "af; pdf @@f" "$file" > "decompiled_code/${filename}_decompiled_functions.txt" || true
             fi
           done
 
-      # 4. Автоматично комітимо і пушимо згенерований код назад в репозиторій
       - name: Commit and Push changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 Ультимативна швидка авто-декомпіляція .so [GitHub Actions]"
-          file_pattern: 'decompiled_code/*' # Записуємо тільки результати роботи
+          commit_message: "🤖 Розумна декомпіляція функцій .so [GitHub Actions]"
+          file_pattern: 'decompiled_code/*'
 
